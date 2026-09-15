@@ -1,0 +1,13 @@
+{
+  "name": "book-recommender-web",
+  "version": "1.0.0",
+  "description": "Internal tool: recommends 3 in-stock books for a kvartirabooks.org customer based on their live order/borrow history.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node --use-system-ca --env-file=.env server.js"
+  },
+  "engines": {
+    "node": ">=22.9.0"
+  }
+}

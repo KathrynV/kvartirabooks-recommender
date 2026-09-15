@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Book Recommender — kvartirabooks.org</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <h1>Book Recommender</h1>
+    <p class="subtitle">
+      Internal tool — suggests in-stock titles for a customer, live from
+      kvartirabooks.org.
+    </p>
+
+    <div id="chooser" class="chooser">
+      <button type="button" id="choose-existing" class="chooser-btn">
+        Existing customer
+        <span>Look them up, see a summary of their reading preferences, then recommend 3 titles they haven't had yet.</span>
+      </button>
+      <button type="button" id="choose-new" class="chooser-btn">
+        New customer
+        <span>Describe age, topics, and keywords — get 5 library titles to hand them right now.</span>
+      </button>
+    </div>
+
+    <form id="lookup-form" class="hidden">
+      <button type="button" class="back-link" data-back>← Back</button>
+
+      <label for="query">Customer name, email, or phone</label>
+      <input id="query" name="query" type="text" placeholder="e.g. Екатерина Калашникова" required />
+
+      <label for="apiKey">Anthropic API key</label>
+      <input id="apiKey" name="apiKey" type="password" placeholder="sk-ant-..." required autocomplete="off" />
+      <p class="hint">Used only for this request — never stored or logged.</p>
+
+      <button type="submit">Get customer</button>
+    </form>
+
+    <div id="customer-summary" class="card hidden">
+      <h2 id="summary-heading"></h2>
+      <p id="summary-text"></p>
+
+      <label class="checkbox-label">
+        <input id="libraryOnly" name="libraryOnly" type="checkbox" checked />
+        Library (borrow) titles only — exclude for-sale recommendations
+      </label>
+
+      <button type="button" id="get-recs-btn">Get recommendations</button>
+    </div>
+
+    <form id="profile-form" class="hidden">
+      <button type="button" class="back-link" data-back>← Back</button>
+
+      <label for="age">Age / reading level</label>
+      <input id="age" name="age" type="text" placeholder="e.g. 6-8 лет" />
+
+      <label for="topics">Preferred topics</label>
+      <input id="topics" name="topics" type="text" placeholder="e.g. животные, приключения, принцессы" />
+
+      <label for="keywords">Clue words</label>
+      <input id="keywords" name="keywords" type="text" placeholder="e.g. драконы, космос, дружба" />
+      <p class="hint">
+        Fill in whatever you know — at least one field is required. The catalog is Russian-language,
+        so topics/keywords in Russian match best.
+      </p>
+
+      <label for="profileApiKey">Anthropic API key</label>
+      <input id="profileApiKey" name="profileApiKey" type="password" placeholder="sk-ant-..." required autocomplete="off" />
+      <p class="hint">Used only for this request — never stored or logged.</p>
+
+      <button type="submit">Get recommendations</button>
+    </form>
+
+    <div id="disambiguation" class="card hidden">
+      <p>Multiple customers matched. Which one?</p>
+      <ul id="match-list"></ul>
+    </div>
+
+    <div id="status" class="status hidden"></div>
+
+    <div id="results" class="hidden">
+      <h2 id="results-heading"></h2>
+      <ol id="results-list"></ol>
+    </div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
