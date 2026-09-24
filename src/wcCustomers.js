@@ -18,7 +18,10 @@ function authHeaders() {
     );
   }
   const token = Buffer.from(`${key}:${secret}`).toString("base64");
-  return { Authorization: `Basic ${token}` };
+  // Node's fetch() sends no User-Agent by default, and Cloudflare's WAF in
+  // front of kvartirabooks.org blocks requests with a missing User-Agent
+  // (403 "Attention Required") even with valid WooCommerce credentials.
+  return { Authorization: `Basic ${token}`, "User-Agent": "kvartirabooks-recommender/1.0" };
 }
 
 async function wcGet(path, params) {
