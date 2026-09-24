@@ -3,12 +3,17 @@ import { deriveAvailabilityFromSku } from "./availability.js";
 
 const BASE_URL = "https://kvartirabooks.org/wp-json/wc/store/v1";
 
+// Node's fetch() sends no User-Agent by default, and Cloudflare's WAF in
+// front of kvartirabooks.org blocks such requests (403) even for this
+// public, unauthenticated API.
+const FETCH_HEADERS = { "User-Agent": "kvartirabooks-recommender/1.0" };
+
 export async function searchProducts({ query, perPage = 10 }) {
   const url = new URL(`${BASE_URL}/products`);
   url.searchParams.set("search", query);
   url.searchParams.set("per_page", String(perPage));
 
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { headers: FETCH_HEADERS });
   if (!res.ok) {
     throw new Error(`Catalog search failed: ${res.status} ${res.statusText}`);
   }
@@ -27,7 +32,7 @@ export async function searchCategories(query, perPage = 5) {
   const url = new URL(`${BASE_URL}/products/categories`);
   url.searchParams.set("search", query);
   url.searchParams.set("per_page", String(perPage));
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { headers: FETCH_HEADERS });
   if (!res.ok) {
     throw new Error(`Category search failed: ${res.status} ${res.statusText}`);
   }
@@ -43,7 +48,7 @@ let ageTermsCache = null;
 export async function getAgeTerms() {
   if (ageTermsCache) return ageTermsCache;
   const url = `${BASE_URL}/products/attributes/${AGE_ATTRIBUTE_ID}/terms?per_page=50`;
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: FETCH_HEADERS });
   if (!res.ok) {
     throw new Error(`Age terms lookup failed: ${res.status} ${res.statusText}`);
   }
@@ -59,7 +64,7 @@ export async function searchProductsInCategory({ categoryId, ageSlug, perPage = 
     url.searchParams.set("attributes[0][slug][0]", ageSlug);
   }
   url.searchParams.set("per_page", String(perPage));
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { headers: FETCH_HEADERS });
   if (!res.ok) {
     throw new Error(`Category product search failed: ${res.status} ${res.statusText}`);
   }
@@ -69,7 +74,7 @@ export async function searchProductsInCategory({ categoryId, ageSlug, perPage = 
 export async function getProductBySku(sku) {
   const url = new URL(`${BASE_URL}/products`);
   url.searchParams.set("sku", sku);
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { headers: FETCH_HEADERS });
   if (!res.ok) {
     throw new Error(`Catalog SKU lookup failed: ${res.status} ${res.statusText}`);
   }
