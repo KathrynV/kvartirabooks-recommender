@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findCustomer, recommendForCustomer, recommendForProfile, profileCustomer } from "./src/recommend.js";
+import { isValidProvider, providerLabel } from "./src/llm.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -57,10 +58,15 @@ function sendJson(res, status, data) {
   res.end(JSON.stringify(data));
 }
 
-// Shared by both endpoints. Returns an error string, or null if apiKey is OK.
-function checkApiKey(apiKey) {
+// Shared by all three endpoints. Returns an error string, or null if
+// provider/apiKey are OK.
+function checkProviderAndApiKey(provider, apiKey) {
+  if (!isValidProvider(provider)) {
+    return `Unsupported model provider "${provider}".`;
+  }
+  const label = providerLabel(provider);
   if (!apiKey || typeof apiKey !== "string") {
-    return "Anthropic API key is required.";
+    return `${label} API key is required.`;
   }
   // HTTP header values are restricted to Latin-1 bytes — sending anything
   // outside that range (e.g. Cyrillic text, which happens if a customer
@@ -68,7 +74,7 @@ function checkApiKey(apiKey) {
   // cryptic low-level "ByteString" error from fetch() rather than a useful
   // message. Catch it here with a clear one instead.
   if (!/^[\x00-\xFF]*$/.test(apiKey)) {
-    return "That doesn't look like a valid Anthropic API key (it contains non-Latin characters). " +
+    return `That doesn't look like a valid ${label} API key (it contains non-Latin characters). ` +
       "Check you pasted it into the API key field, not another field.";
   }
   return null;
@@ -117,12 +123,14 @@ async function handleRecommend(req, res) {
   }
 
   const { query, customerId, apiKey } = body;
+  const provider = body.provider || "anthropic";
+  const model = typeof body.model === "string" ? body.model.trim() : "";
   const excludeSkus = Array.isArray(body.excludeSkus)
     ? body.excludeSkus.filter((s) => typeof s === "string")
     : [];
   const libraryOnly = Boolean(body.libraryOnly);
   const round = Number.isInteger(body.round) ? Math.max(0, Math.min(body.round, 10)) : 0;
-  const apiKeyError = checkApiKey(apiKey);
+  const apiKeyError = checkProviderAndApiKey(provider, apiKey);
   if (apiKeyError) {
     return sendJson(res, 400, { error: apiKeyError });
   }
@@ -137,7 +145,7 @@ async function handleRecommend(req, res) {
     }
     const { customer } = resolved;
 
-    const outcome = await recommendForCustomer({ customer, apiKey, excludeSkus, libraryOnly, round });
+    const outcome = await recommendForCustomer({ customer, provider, apiKey, model, excludeSkus, libraryOnly, round });
 
     if (outcome.status === "no_history") {
       return sendJson(res, 200, {
@@ -177,7 +185,9 @@ async function handleCustomerProfile(req, res) {
   }
 
   const { query, customerId, apiKey } = body;
-  const apiKeyError = checkApiKey(apiKey);
+  const provider = body.provider || "anthropic";
+  const model = typeof body.model === "string" ? body.model.trim() : "";
+  const apiKeyError = checkProviderAndApiKey(provider, apiKey);
   if (apiKeyError) {
     return sendJson(res, 400, { error: apiKeyError });
   }
@@ -192,7 +202,7 @@ async function handleCustomerProfile(req, res) {
     }
     const { customer } = resolved;
 
-    const outcome = await profileCustomer({ customer, apiKey });
+    const outcome = await profileCustomer({ customer, provider, apiKey, model });
 
     if (outcome.status === "no_history") {
       return sendJson(res, 200, {
@@ -223,6 +233,8 @@ async function handleRecommendProfile(req, res) {
   }
 
   const apiKey = body.apiKey;
+  const provider = body.provider || "anthropic";
+  const model = typeof body.model === "string" ? body.model.trim() : "";
   const age = typeof body.age === "string" ? body.age.trim() : "";
   const topics = typeof body.topics === "string" ? body.topics.trim() : "";
   const keywords = typeof body.keywords === "string" ? body.keywords.trim() : "";
@@ -230,7 +242,7 @@ async function handleRecommendProfile(req, res) {
     ? body.excludeSkus.filter((s) => typeof s === "string")
     : [];
 
-  const apiKeyError = checkApiKey(apiKey);
+  const apiKeyError = checkProviderAndApiKey(provider, apiKey);
   if (apiKeyError) {
     return sendJson(res, 400, { error: apiKeyError });
   }
@@ -239,7 +251,7 @@ async function handleRecommendProfile(req, res) {
   }
 
   try {
-    const outcome = await recommendForProfile({ apiKey, age, topics, keywords, excludeSkus });
+    const outcome = await recommendForProfile({ provider, apiKey, model, age, topics, keywords, excludeSkus });
 
     if (outcome.status === "no_candidates") {
       return sendJson(res, 200, { recommendations: [], message: outcome.message });

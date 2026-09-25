@@ -104,13 +104,15 @@ label {
   margin-top: 10px;
 }
 
-input {
+input,
+select {
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--card-bg);
   color: var(--fg);
   font-size: 1em;
+  font-family: inherit;
 }
 
 .hint {

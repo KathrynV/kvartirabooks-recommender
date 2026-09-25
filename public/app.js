@@ -1,6 +1,12 @@
 const chooserEl = document.getElementById("chooser");
 const lookupForm = document.getElementById("lookup-form");
 const profileForm = document.getElementById("profile-form");
+const providerSelect = document.getElementById("provider");
+const modelSelect = document.getElementById("model");
+const apiKeyLabel = document.getElementById("apiKey-label");
+const profileProviderSelect = document.getElementById("profileProvider");
+const profileModelSelect = document.getElementById("profileModel");
+const profileApiKeyLabel = document.getElementById("profileApiKey-label");
 const summaryCard = document.getElementById("customer-summary");
 const summaryHeading = document.getElementById("summary-heading");
 const summaryText = document.getElementById("summary-text");
@@ -23,6 +29,42 @@ let existingSession = { customer: null, excludedSkus: [], libraryOnly: null, rou
 // Same idea for the new-customer profile flow, keyed on the typed
 // description instead of a resolved customer id.
 let profileSession = { key: null, excludedSkus: [] };
+
+// ---- Model provider / model dropdowns ----
+
+const MODELS_BY_PROVIDER = {
+  anthropic: [
+    { value: "claude-sonnet-5", label: "Claude Sonnet 5" },
+    { value: "claude-opus-5-5", label: "Claude Opus 5.5" },
+    { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
+  ],
+  openai: [
+    { value: "gpt-4o-mini", label: "GPT-4o mini" },
+    { value: "gpt-4o", label: "GPT-4o" },
+    { value: "gpt-4.1", label: "GPT-4.1" },
+  ],
+};
+
+const API_KEY_PLACEHOLDER = { anthropic: "sk-ant-...", openai: "sk-..." };
+
+function syncProviderControls(providerSelectEl, modelSelectEl, apiKeyInputEl, apiKeyLabelEl) {
+  const provider = providerSelectEl.value;
+  const models = MODELS_BY_PROVIDER[provider] || MODELS_BY_PROVIDER.anthropic;
+  modelSelectEl.innerHTML = models
+    .map((m) => `<option value="${m.value}">${escapeHtml(m.label)}</option>`)
+    .join("");
+  if (apiKeyInputEl) apiKeyInputEl.placeholder = API_KEY_PLACEHOLDER[provider] || "";
+  if (apiKeyLabelEl) apiKeyLabelEl.textContent = `${provider === "openai" ? "OpenAI" : "Anthropic"} API key`;
+}
+
+providerSelect.addEventListener("change", () =>
+  syncProviderControls(providerSelect, modelSelect, document.getElementById("apiKey"), apiKeyLabel),
+);
+profileProviderSelect.addEventListener("change", () =>
+  syncProviderControls(profileProviderSelect, profileModelSelect, document.getElementById("profileApiKey"), profileApiKeyLabel),
+);
+syncProviderControls(providerSelect, modelSelect, document.getElementById("apiKey"), apiKeyLabel);
+syncProviderControls(profileProviderSelect, profileModelSelect, document.getElementById("profileApiKey"), profileApiKeyLabel);
 
 function showView(view) {
   chooserEl.classList.toggle("hidden", view !== "chooser");
@@ -89,14 +131,14 @@ function escapeHtml(str) {
 
 // ---- Existing customer flow: step 1, resolve + summarize ----
 
-function renderDisambiguation(matches, query, apiKey) {
+function renderDisambiguation(matches, query, provider, model, apiKey) {
   showStatus("Multiple customers matched — pick one below.");
   for (const m of matches) {
     const li = document.createElement("li");
     const btn = document.createElement("button");
     btn.type = "button";
     btn.textContent = `${m.name} — ${m.email}${m.phone ? " — " + m.phone : ""}`;
-    btn.addEventListener("click", () => runLookup({ query, customerId: m.id, apiKey }));
+    btn.addEventListener("click", () => runLookup({ query, customerId: m.id, provider, model, apiKey }));
     li.appendChild(btn);
     matchList.appendChild(li);
   }
@@ -112,7 +154,7 @@ async function runLookup(payload) {
     const data = await postJson("/api/customer-profile", payload);
     if (data.needsDisambiguation) {
       clearOutputs();
-      renderDisambiguation(data.matches, payload.query, payload.apiKey);
+      renderDisambiguation(data.matches, payload.query, payload.provider, payload.model, payload.apiKey);
       return;
     }
     clearOutputs();
@@ -138,8 +180,10 @@ async function runLookup(payload) {
 lookupForm.addEventListener("submit", (e) => {
   e.preventDefault();
   const query = document.getElementById("query").value.trim();
+  const provider = providerSelect.value;
+  const model = modelSelect.value;
   const apiKey = document.getElementById("apiKey").value.trim();
-  runLookup({ query, apiKey });
+  runLookup({ query, provider, model, apiKey });
 });
 
 // ---- Existing customer flow: step 2, recommend ----
@@ -177,6 +221,8 @@ async function runExistingRecommend(payload) {
 }
 
 getRecsBtn.addEventListener("click", () => {
+  const provider = providerSelect.value;
+  const model = modelSelect.value;
   const apiKey = document.getElementById("apiKey").value.trim();
   const libraryOnly = document.getElementById("libraryOnly").checked;
   const customerId = existingSession.customer.id;
@@ -187,6 +233,8 @@ getRecsBtn.addEventListener("click", () => {
   if (existingSession.libraryOnly === libraryOnly && existingSession.round > 0) {
     runExistingRecommend({
       customerId,
+      provider,
+      model,
       apiKey,
       excludeSkus: existingSession.excludedSkus,
       libraryOnly,
@@ -195,7 +243,7 @@ getRecsBtn.addEventListener("click", () => {
   } else {
     existingSession.excludedSkus = [];
     existingSession.round = 0;
-    runExistingRecommend({ customerId, apiKey, libraryOnly, round: 0 });
+    runExistingRecommend({ customerId, provider, model, apiKey, libraryOnly, round: 0 });
   }
 });
 
@@ -235,6 +283,8 @@ profileForm.addEventListener("submit", (e) => {
   const age = document.getElementById("age").value.trim();
   const topics = document.getElementById("topics").value.trim();
   const keywords = document.getElementById("keywords").value.trim();
+  const provider = profileProviderSelect.value;
+  const model = profileModelSelect.value;
   const apiKey = document.getElementById("profileApiKey").value.trim();
   const key = `${age}|${topics}|${keywords}`;
 
@@ -247,10 +297,10 @@ profileForm.addEventListener("submit", (e) => {
   // Same description as last time — ask for a new set, excluding prior
   // picks. Any change to the description starts over with a fresh pool.
   if (key === profileSession.key) {
-    runProfileRecommend({ age, topics, keywords, apiKey, key, excludeSkus: profileSession.excludedSkus });
+    runProfileRecommend({ age, topics, keywords, provider, model, apiKey, key, excludeSkus: profileSession.excludedSkus });
   } else {
     profileSession = { key, excludedSkus: [] };
-    runProfileRecommend({ age, topics, keywords, apiKey, key });
+    runProfileRecommend({ age, topics, keywords, provider, model, apiKey, key });
   }
 });
 

@@ -31,7 +31,16 @@
       <label for="query">Customer name, email, or phone</label>
       <input id="query" name="query" type="text" placeholder="e.g. Екатерина Калашникова" required />
 
-      <label for="apiKey">Anthropic API key</label>
+      <label for="provider">Model provider</label>
+      <select id="provider" name="provider">
+        <option value="anthropic">Anthropic</option>
+        <option value="openai">ChatGPT (OpenAI)</option>
+      </select>
+
+      <label for="model">Model</label>
+      <select id="model" name="model"></select>
+
+      <label for="apiKey" id="apiKey-label">API key</label>
       <input id="apiKey" name="apiKey" type="password" placeholder="sk-ant-..." required autocomplete="off" />
       <p class="hint">Used only for this request — never stored or logged.</p>
 
@@ -66,7 +75,16 @@
         so topics/keywords in Russian match best.
       </p>
 
-      <label for="profileApiKey">Anthropic API key</label>
+      <label for="profileProvider">Model provider</label>
+      <select id="profileProvider" name="profileProvider">
+        <option value="anthropic">Anthropic</option>
+        <option value="openai">ChatGPT (OpenAI)</option>
+      </select>
+
+      <label for="profileModel">Model</label>
+      <select id="profileModel" name="profileModel"></select>
+
+      <label for="profileApiKey" id="profileApiKey-label">API key</label>
       <input id="profileApiKey" name="profileApiKey" type="password" placeholder="sk-ant-..." required autocomplete="off" />
       <p class="hint">Used only for this request — never stored or logged.</p>
 

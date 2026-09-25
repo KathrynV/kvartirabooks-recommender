@@ -8,7 +8,7 @@ import {
   toCandidate,
 } from "./wcCatalog.js";
 import { baseSku, normalizeTitle } from "./availability.js";
-import { getRecommendations, getCustomerSummary } from "./claude.js";
+import { getRecommendations, getCustomerSummary } from "./llm.js";
 
 const MAX_ENRICH = 40; // cap catalog lookups for seeding search queries
 const MAX_SEARCH_TERMS = 18; // cap author/category search queries
@@ -258,7 +258,7 @@ async function buildCandidatesFromProfile(excludeSkus, { age, topics, keywords }
 // Shared by both flows: send candidates to Claude, then validate/backfill the
 // response so the caller always gets back exactly targetCount real,
 // in-stock, priced candidates rather than whatever Claude happened to return.
-async function finalizeWithClaude({ apiKey, promptExtra, candidates, targetCount }) {
+async function finalizeWithModel({ provider, apiKey, model, promptExtra, candidates, targetCount }) {
   const candidatesForModel = candidates.map((c) => ({
     title: c.title,
     sku: c.sku,
@@ -269,7 +269,9 @@ async function finalizeWithClaude({ apiKey, promptExtra, candidates, targetCount
   }));
 
   const recommendations = await getRecommendations({
+    provider,
     apiKey,
+    model,
     candidates: candidatesForModel,
     count: targetCount,
     ...promptExtra,
@@ -310,7 +312,9 @@ async function finalizeWithClaude({ apiKey, promptExtra, candidates, targetCount
 
 export async function recommendForCustomer({
   customer,
+  provider,
   apiKey,
+  model,
   excludeSkus = [],
   libraryOnly = false,
   round = 0,
@@ -337,8 +341,10 @@ export async function recommendForCustomer({
 
   const targetCount = Math.min(3, candidates.length);
   const historyForModel = history.map((h) => ({ name: h.name, sku: h.sku }));
-  const enriched = await finalizeWithClaude({
+  const enriched = await finalizeWithModel({
+    provider,
     apiKey,
+    model,
     promptExtra: { customerName: customer.name, history: historyForModel },
     candidates,
     targetCount,
@@ -354,7 +360,7 @@ export async function recommendForCustomer({
 
 // A short, staff-facing summary of what this customer likes to read, shown
 // before they decide whether to ask for recommendations at all.
-export async function profileCustomer({ customer, apiKey }) {
+export async function profileCustomer({ customer, provider, apiKey, model }) {
   const history = await getRecentOrderHistory(customer.id);
   if (history.length === 0) {
     return { status: "no_history" };
@@ -371,7 +377,9 @@ export async function profileCustomer({ customer, apiKey }) {
     .map(([name, count]) => ({ name, count }));
 
   const summary = await getCustomerSummary({
+    provider,
     apiKey,
+    model,
     customerName: customer.name,
     historyCount: history.length,
     sampleTitles: items.map((i) => ({
@@ -387,7 +395,7 @@ export async function profileCustomer({ customer, apiKey }) {
   return { status: "ok", historyCount: history.length, summary };
 }
 
-export async function recommendForProfile({ apiKey, age, topics, keywords, excludeSkus = [] }) {
+export async function recommendForProfile({ provider, apiKey, model, age, topics, keywords, excludeSkus = [] }) {
   const { candidates, searchTerms, matchedAgeTerm } = await buildCandidatesFromProfile(excludeSkus, {
     age,
     topics,
@@ -405,8 +413,10 @@ export async function recommendForProfile({ apiKey, age, topics, keywords, exclu
   }
 
   const targetCount = Math.min(5, candidates.length);
-  const enriched = await finalizeWithClaude({
+  const enriched = await finalizeWithModel({
+    provider,
     apiKey,
+    model,
     promptExtra: { customerName: "a new customer", history: [], profile: { age, topics, keywords } },
     candidates,
     targetCount,
